@@ -14,6 +14,7 @@ import sys
 
 from fabric.auth import get_password, set_password
 from fabric.utils import abort, handle_prompt_abort
+from fabric.exceptions import NetworkError
 
 try:
     import warnings
@@ -65,13 +66,25 @@ class HostConnectionCache(dict):
     22 is assumed, so ``example.com`` is equivalent to ``example.com:22``.
     """
     def __getitem__(self, key):
+        from fabric.state import env
         # Normalize given key (i.e. obtain username and port, if not given)
         user, host, port = normalize(key)
         # Recombine for use as a key.
         real_key = join_host_strings(user, host, port)
         # If not found, create new connection and store it
         if real_key not in self:
-            self[real_key] = connect(user, host, port)
+            # Honor exception setting to determine how we handle
+            # failure to connect
+            try:
+                self[real_key] = connect(user, host, port)
+            except NetworkError, e:
+                # Backwards compat test re: whether to use an exception or
+                # abort
+                if not env.use_exceptions_for['network']:
+                    abort(e.message)
+                else:
+                    raise
+
         # Return the value either way
         return dict.__getitem__(self, real_key)
 
@@ -209,9 +222,7 @@ def connect(user, host, port):
         # command line results in the big banner error about man-in-the-middle
         # attacks.
         except ssh.BadHostKeyException:
-            abort("Host key for %s did not match pre-existing key! Server's"
-                   " key was changed recently, or possible man-in-the-middle"
-                   "attack." % env.host)
+            raise NetworkError("Host key for %s did not match pre-existing key! Server's key was changed recently, or possible man-in-the-middle attack." % env.host)
         # Prompt for new password to try on auth failure
         except (
             ssh.AuthenticationException,
@@ -267,16 +278,15 @@ def connect(user, host, port):
             sys.exit(0)
         # Handle timeouts
         except socket.timeout:
-            abort('Timed out trying to connect to %s' % host)
+            raise NetworkError('Timed out trying to connect to %s' % host)
         # Handle DNS error / name lookup failure
         except socket.gaierror:
-            abort('Name lookup failed for %s' % host)
+            raise NetworkError('Name lookup failed for %s' % host)
         # Handle generic network-related errors
         # NOTE: In 2.6, socket.error subclasses IOError
         except socket.error, e:
-            abort('Low level socket error connecting to host %s: %s' % (
-                host, e[1])
-            )
+            msg = "Low level socket error connecting to host %s: %s"
+            raise NetworkError(msg % (host, e[1]))
 
 
 def prompt_for_password(prompt=None, no_colon=False, stream=None):
