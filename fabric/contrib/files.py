@@ -171,7 +171,7 @@ def sed(filename, before, after, limit='', use_sudo=False, use_local=False,
     # Test the OS because of differences between sed versions
 
     with hide('running', 'stdout'):
-        platform = run("uname")
+        platform = func("uname")
     if platform in ('NetBSD', 'OpenBSD', 'QNX'):
         # Attempt to protect against failures/collisions
         hasher = hashlib.sha1()
