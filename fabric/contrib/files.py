@@ -125,8 +125,8 @@ def upload_template(filename, destination, context=None, use_jinja=False,
     )
 
 
-def sed(filename, before, after, limit='', use_sudo=False, backup='.bak',
-    flags=''):
+def sed(filename, before, after, limit='', use_sudo=False, use_local=False,
+    backup='.bak', flags=''):
     """
     Run a search-and-replace on ``filename`` with given regex patterns.
 
@@ -138,7 +138,10 @@ def sed(filename, before, after, limit='', use_sudo=False, backup='.bak',
     specify e.g.  ``http:\/\/foo\.com``, instead just using ``http://foo\.com``
     is fine.
 
-    If ``use_sudo`` is True, will use `sudo` instead of `run`.
+    If ``use_sudo`` is True, `sed` will use `sudo` instead of `run`.
+    
+    If ``use_local`` is True, `sed` will eschew `sudo` and `run` and execute
+    with `local` instead. `use_local` overrides `use_sudo`.
 
     `sed` will pass ``shell=False`` to `run`/`sudo`, in order to avoid problems
     with many nested levels of quotes and backslashes.
@@ -151,7 +154,10 @@ def sed(filename, before, after, limit='', use_sudo=False, backup='.bak',
     .. versionadded:: 1.1
         The ``flags`` parameter.
     """
-    func = use_sudo and sudo or run
+    if not use_local:
+        func = use_sudo and sudo or run
+    else:
+        func = local
     # Characters to be escaped in both
     for char in "/'":
         before = before.replace(char, r'\%s' % char)
