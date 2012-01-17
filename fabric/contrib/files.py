@@ -187,6 +187,9 @@ def sed(filename, before, after, limit='', use_sudo=False, use_local=False,
     else:
         expr = r"sed -i%s -r -e '%ss/%s/%s/%sg' %s"
         command = expr % (backup, limit, before, after, flags, filename)
+    
+    if use_local:
+        return func(command)
     return func(command, shell=False)
 
 
